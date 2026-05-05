@@ -72,6 +72,9 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Initialize DB at module load time — runs under gunicorn and direct python
+init_db()
+
 @app.route('/')
 def index():
     return redirect(url_for('kanban') if 'user_id' in session else url_for('login'))
