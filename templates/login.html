@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SICURA / 5500 CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111;
+    --border: #222;
+    --text: #e8e4dc;
+    --muted: #555;
+    --red: #e63946;
+    --gold: #c9a84c;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: repeating-linear-gradient(
+      0deg, transparent, transparent 39px, #141414 39px, #141414 40px
+    ),
+    repeating-linear-gradient(
+      90deg, transparent, transparent 39px, #141414 39px, #141414 40px
+    );
+  }
+  .box {
+    width: 360px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 48px 40px 44px;
+  }
+  .brand {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 30px;
+    letter-spacing: 6px;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .sub {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 44px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+  }
+  label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    padding: 11px 14px;
+    margin-bottom: 22px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus { border-color: var(--gold); }
+  .btn {
+    width: 100%;
+    background: var(--gold);
+    color: #0a0a0a;
+    border: none;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    padding: 14px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .error {
+    background: rgba(230,57,70,0.12);
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-size: 11px;
+    padding: 10px 14px;
+    margin-bottom: 22px;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="brand">SICURA</div>
+  <div class="sub">5500 Prospect CRM</div>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="POST">
+    <label>Username</label>
+    <input type="text" name="username" autocomplete="username" required autofocus>
+    <label>Password</label>
+    <input type="password" name="password" autocomplete="current-password" required>
+    <button type="submit" class="btn">Sign In →</button>
+  </form>
+</div>
+</body>
+</html>

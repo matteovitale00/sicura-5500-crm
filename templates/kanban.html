@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SICURA / 5500 CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0a0a; --surface: #111; --col-bg: #0e0e0e; --card-bg: #161616;
+  --border: #222; --border2: #2a2a2a; --text: #e8e4dc; --muted: #555; --muted2: #777;
+  --red: #e63946; --gold: #c9a84c; --green: #2ecc71; --blue: #4e8cff;
+  --purple: #9b72f5; --orange: #f4a261; --teal: #2ec4b6;
+}
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 13px; display: flex; flex-direction: column; }
+
+/* Navbar */
+.navbar { flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 20px; height: 52px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.brand { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 22px; letter-spacing: 5px; }
+.brand-sep { color: var(--border2); }
+.brand-sub { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+.spacer { flex: 1; }
+.stat-pill { font-size: 11px; color: var(--muted); letter-spacing: 1px; border: 1px solid var(--border); padding: 3px 10px; white-space: nowrap; }
+.stat-pill span { color: var(--gold); }
+.stat-pill span.r { color: var(--red); }
+.stat-pill span.g { color: var(--green); }
+.nav-user { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); padding-right: 12px; border-right: 1px solid var(--border); }
+.nav-btn { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; border: 1px solid var(--border2); background: transparent; color: var(--muted2); padding: 5px 12px; cursor: pointer; transition: all .15s; white-space: nowrap; }
+.nav-btn:hover { border-color: var(--gold); color: var(--gold); }
+.nav-btn.primary { border-color: var(--gold); color: var(--gold); }
+.nav-btn.primary:hover { background: var(--gold); color: var(--bg); }
+
+/* Board */
+.board-wrap { flex: 1; overflow-x: auto; overflow-y: hidden; padding: 16px 20px 20px; display: flex; gap: 12px; }
+.board-wrap::-webkit-scrollbar { height: 5px; }
+.board-wrap::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.column { flex-shrink: 0; width: 268px; display: flex; flex-direction: column; background: var(--col-bg); border: 1px solid var(--border); }
+.column.drag-over { border-color: var(--gold); }
+
+.col-header { padding: 12px 13px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.col-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+.col-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.col-meta { display: flex; gap: 10px; font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+.col-meta .v { color: var(--muted2); }
+.col-meta .rv { color: var(--red); }
+
+.cards-wrap { flex: 1; overflow-y: auto; padding: 8px 8px 12px; display: flex; flex-direction: column; gap: 7px; min-height: 50px; }
+.cards-wrap::-webkit-scrollbar { width: 3px; }
+.cards-wrap::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* Cards */
+.card { background: var(--card-bg); border: 1px solid var(--border); padding: 11px 12px 9px; cursor: pointer; transition: border-color .15s; position: relative; user-select: none; }
+.card:hover { border-color: var(--border2); }
+.card.dragging { opacity: 0.35; }
+.card.no-contact { border-left: 2px solid var(--red); }
+.card-flag { position: absolute; top: 9px; right: 10px; color: var(--red); font-size: 12px; }
+.card-company { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 1px; padding-right: 18px; line-height: 1.2; margin-bottom: 2px; }
+.card-location { font-size: 10px; color: var(--muted); margin-bottom: 7px; letter-spacing: 0.5px; }
+.card-stats { display: flex; flex-wrap: wrap; gap: 3px 8px; font-size: 10px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 7px; }
+.card-stats .kv { display: flex; gap: 3px; }
+.card-stats .v { color: var(--muted2); }
+.card-time { margin-top: 7px; font-size: 10px; display: flex; align-items: center; gap: 4px; color: var(--muted); }
+.card-time .days { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; color: var(--muted2); }
+.card-time .days.warn { color: var(--orange); }
+.card-time .days.stale { color: var(--red); }
+
+/* Detail modal */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.78); z-index: 100; align-items: flex-start; justify-content: center; padding: 28px 16px; overflow-y: auto; }
+.overlay.open { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border2); width: 100%; max-width: 700px; flex-shrink: 0; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 14px; border-bottom: 1px solid var(--border); }
+.modal-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 2px; }
+.modal-close { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 4px; }
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 20px; }
+.section-label { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--border); }
+.fg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-bottom: 16px; }
+.fg.three { grid-template-columns: 1fr 1fr 1fr; }
+.fg.four { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.field input, .field select, .field textarea { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 7px 9px; outline: none; transition: border-color .15s; width: 100%; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--gold); }
+.field select option { background: var(--surface); }
+.field textarea { resize: vertical; min-height: 56px; }
+.full { grid-column: 1 / -1; }
+
+/* Call log */
+.log-area { background: var(--bg); border: 1px solid var(--border); max-height: 200px; overflow-y: auto; margin-bottom: 8px; }
+.log-area::-webkit-scrollbar { width: 3px; }
+.log-area::-webkit-scrollbar-thumb { background: var(--border); }
+.log-entry { padding: 9px 13px; border-bottom: 1px solid var(--border); font-size: 11px; line-height: 1.5; }
+.log-entry:last-child { border-bottom: none; }
+.log-meta { display: flex; gap: 8px; color: var(--muted); font-size: 10px; letter-spacing: 1px; margin-bottom: 3px; }
+.log-meta .who { color: var(--gold); }
+.log-note { color: var(--text); }
+.log-empty { padding: 18px 13px; color: var(--muted); font-size: 11px; font-style: italic; }
+.log-row { display: flex; gap: 7px; margin-bottom: 16px; }
+.log-row textarea { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 7px 9px; outline: none; resize: none; height: 36px; transition: border-color .15s; }
+.log-row textarea:focus { border-color: var(--gold); }
+.log-row button { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 2px; background: var(--border2); color: var(--text); border: 1px solid var(--border2); padding: 0 14px; cursor: pointer; height: 36px; transition: all .15s; white-space: nowrap; }
+.log-row button:hover { background: var(--gold); color: var(--bg); border-color: var(--gold); }
+
+.modal-footer { display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--col-bg); }
+.btn-save { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; background: var(--gold); color: var(--bg); border: none; padding: 9px 22px; cursor: pointer; transition: opacity .15s; }
+.btn-save:hover { opacity: .85; }
+.btn-del { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; background: transparent; color: var(--red); border: 1px solid var(--red); padding: 9px 16px; cursor: pointer; transition: all .15s; margin-left: auto; }
+.btn-del:hover { background: var(--red); color: var(--bg); }
+
+/* Mini modals */
+.mini-ov { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.78); z-index: 200; align-items: center; justify-content: center; }
+.mini-ov.open { display: flex; }
+.mini-modal { background: var(--surface); border: 1px solid var(--border2); width: 420px; padding: 26px 26px 22px; }
+.mini-modal h2 { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 17px; letter-spacing: 3px; margin-bottom: 18px; }
+.mf { margin-bottom: 12px; }
+.mf label { display: block; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.mf input, .mf select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 7px 9px; outline: none; transition: border-color .15s; }
+.mf input:focus, .mf select:focus { border-color: var(--gold); }
+.mf select option { background: var(--surface); }
+.mini-actions { display: flex; gap: 8px; margin-top: 18px; }
+.mbtn { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; padding: 9px 18px; cursor: pointer; transition: all .15s; }
+.mbtn.gold { background: var(--gold); color: var(--bg); border: none; }
+.mbtn.gold:hover { opacity: .85; }
+.mbtn.out { background: transparent; color: var(--muted); border: 1px solid var(--border2); }
+.mbtn.out:hover { color: var(--text); border-color: var(--text); }
+.imp-result { font-size: 11px; margin-top: 8px; color: var(--green); letter-spacing: 1px; }
+.imp-result.err { color: var(--red); }
+input[type="file"] { cursor: pointer; font-size: 11px; color: var(--muted); }
+input[type="file"]::file-selector-button { font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--border2); color: var(--muted2); padding: 3px 8px; cursor: pointer; margin-right: 8px; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="brand">SICURA</div>
+  <div class="brand-sep">/</div>
+  <div class="brand-sub">5500 CRM</div>
+  <div class="spacer"></div>
+  <div class="stat-pill">Total <span id="s-total">—</span></div>
+  <div class="stat-pill">No Contact <span class="r" id="s-nc">—</span></div>
+  <div class="stat-pill">Won <span class="g" id="s-won">—</span></div>
+  <div class="nav-user">{{ display_name }}</div>
+  <button class="nav-btn primary" onclick="openAdd()">+ Prospect</button>
+  <button class="nav-btn" onclick="openImport()">↑ Import CSV</button>
+  <button class="nav-btn" onclick="location.href='/logout'">Sign Out</button>
+</nav>
+
+<div class="board-wrap" id="board"></div>
+
+<!-- Detail Modal -->
+<div class="overlay" id="detail-ov" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="m-title">—</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="section-label" style="margin-top:0">Plan Info</div>
+      <div class="fg">
+        <div class="field"><label>Sponsor Name</label><input id="f-sponsor_name" type="text"></div>
+        <div class="field"><label>Plan Name</label><input id="f-plan_name" type="text"></div>
+        <div class="field"><label>EIN</label><input id="f-ein" type="text"></div>
+        <div class="field"><label>Industry</label><input id="f-industry" type="text" placeholder="e.g. Manufacturing"></div>
+        <div class="field"><label>City</label><input id="f-city" type="text"></div>
+        <div class="field"><label>State</label><input id="f-state" type="text" maxlength="2"></div>
+      </div>
+
+      <div class="section-label">Financials (from 5500)</div>
+      <div class="fg four">
+        <div class="field"><label>Plan Assets ($)</label><input id="f-plan_assets" type="number" step="1000"></div>
+        <div class="field"><label># Participants</label><input id="f-num_participants" type="number"></div>
+        <div class="field"><label>Fees % Assets</label><input id="f-fees_pct_assets" type="number" step="0.001"></div>
+        <div class="field"><label>Total Fees ($)</label><input id="f-total_fees" type="number" step="100"></div>
+      </div>
+      <div class="fg">
+        <div class="field"><label>Fee Tier</label><input id="f-fee_tier" type="text" placeholder="e.g. sch_c"></div>
+        <div class="field"></div>
+      </div>
+
+      <div class="section-label">Contact</div>
+      <div class="fg">
+        <div class="field"><label>Contact Name</label><input id="f-contact_name" type="text"></div>
+        <div class="field"><label>Phone</label><input id="f-phone" type="text"></div>
+        <div class="field"><label>Email</label><input id="f-email" type="email"></div>
+        <div class="field"><label>Mailer Sent Date</label><input id="f-mailer_sent_date" type="date"></div>
+      </div>
+
+      <div class="section-label">Pipeline</div>
+      <div class="fg">
+        <div class="field"><label>Stage</label>
+          <select id="f-stage">
+            <option>Mailer Sent</option>
+            <option>Call Attempted</option>
+            <option>Intro Call Booked</option>
+            <option>Zoom/Findings Scheduled</option>
+            <option>Proposal Sent</option>
+            <option>Closed Won</option>
+            <option>Closed Lost / Not Interested</option>
+          </select>
+        </div>
+        <div class="field full"><label>Notes</label><textarea id="f-notes" rows="2"></textarea></div>
+      </div>
+
+      <div class="section-label">Call Log</div>
+      <div class="log-area" id="log-area"></div>
+      <div class="log-row">
+        <textarea id="log-input" placeholder="Log a call, voicemail, email..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addLog()}"></textarea>
+        <button onclick="addLog()">+ Log</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-save" onclick="saveProspect()">Save Changes</button>
+      <button class="btn-del" onclick="deleteProspect()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Modal -->
+<div class="mini-ov" id="add-ov" onclick="if(event.target===this)closeAdd()">
+  <div class="mini-modal">
+    <h2>ADD PROSPECT</h2>
+    <div class="mf"><label>Sponsor Name *</label><input id="a-sponsor" type="text"></div>
+    <div class="mf"><label>Contact Name</label><input id="a-contact" type="text"></div>
+    <div class="mf"><label>Phone</label><input id="a-phone" type="text"></div>
+    <div class="mf"><label>Stage</label>
+      <select id="a-stage">
+        <option>Mailer Sent</option><option>Call Attempted</option><option>Intro Call Booked</option>
+        <option>Zoom/Findings Scheduled</option><option>Proposal Sent</option>
+        <option>Closed Won</option><option>Closed Lost / Not Interested</option>
+      </select>
+    </div>
+    <div class="mini-actions">
+      <button class="mbtn gold" onclick="submitAdd()">Add</button>
+      <button class="mbtn out" onclick="closeAdd()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="mini-ov" id="imp-ov" onclick="if(event.target===this)closeImport()">
+  <div class="mini-modal">
+    <h2>IMPORT CSV</h2>
+    <p style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:14px;">
+      Recognized headers: Sponsor Name, Plan Name, EIN, City, State,<br>
+      Plan Assets ($), Participants, Fees % Assets, Total Fees ($),<br>
+      Fee Tier, Industry, Contact Name, Phone, Email, Mailer Sent Date.<br>
+      <span style="color:var(--border2)">Report Type / Batch Name / Date Generated / PDF File are auto-skipped.</span>
+    </p>
+    <div class="mf"><label>CSV File</label><input id="imp-file" type="file" accept=".csv"></div>
+    <div id="imp-result" class="imp-result" style="display:none"></div>
+    <div class="mini-actions">
+      <button class="mbtn gold" onclick="submitImport()">Import</button>
+      <button class="mbtn out" onclick="closeImport()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STAGES = [
+  { key: 'Mailer Sent',                  color: '#555' },
+  { key: 'Call Attempted',               color: '#4e8cff' },
+  { key: 'Intro Call Booked',            color: '#2ec4b6' },
+  { key: 'Zoom/Findings Scheduled',      color: '#9b72f5' },
+  { key: 'Proposal Sent',                color: '#c9a84c' },
+  { key: 'Closed Won',                   color: '#2ecc71' },
+  { key: 'Closed Lost / Not Interested', color: '#e63946' },
+];
+
+let prospects = [], currentId = null, dragId = null;
+
+async function api(url, method='GET', body=null) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  return r.json();
+}
+
+async function load() {
+  prospects = await api('/api/prospects');
+  render();
+  stats();
+}
+
+function stats() {
+  document.getElementById('s-total').textContent = prospects.length;
+  document.getElementById('s-nc').textContent = prospects.filter(p => !p.has_contact).length;
+  document.getElementById('s-won').textContent = prospects.filter(p => p.stage === 'Closed Won').length;
+}
+
+function render() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  STAGES.forEach(s => board.appendChild(buildCol(s)));
+}
+
+function buildCol(stage) {
+  const ps = prospects.filter(p => p.stage === stage.key);
+  const nc = ps.filter(p => !p.has_contact).length;
+  const avg = ps.length ? (ps.reduce((a,p) => a + daysSince(p.stage_entered_at), 0) / ps.length).toFixed(0) : 0;
+
+  const col = document.createElement('div');
+  col.className = 'column';
+  col.dataset.stage = stage.key;
+  col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-over'); });
+  col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+  col.addEventListener('drop', async e => {
+    e.preventDefault(); col.classList.remove('drag-over');
+    if (dragId === null) return;
+    const p = prospects.find(x => x.id === dragId);
+    if (!p || p.stage === stage.key) return;
+    p.stage = stage.key;
+    render();
+    await api('/api/prospects/' + dragId, 'PUT', { stage: stage.key });
+    await load();
+  });
+
+  col.innerHTML = `
+    <div class="col-header">
+      <div class="col-title"><div class="col-dot" style="background:${stage.color}"></div>${stage.key}</div>
+      <div class="col-meta">
+        <span><span class="v">${ps.length}</span> cards</span>
+        <span><span class="${nc>0?'rv':'v'}">${nc}</span> no contact</span>
+        <span>avg <span class="v">${avg}d</span></span>
+      </div>
+    </div>
+    <div class="cards-wrap"></div>
+  `;
+  const wrap = col.querySelector('.cards-wrap');
+  ps.forEach(p => wrap.appendChild(buildCard(p)));
+  return col;
+}
+
+function buildCard(p) {
+  const days = daysSince(p.stage_entered_at);
+  const dc = days >= 21 ? 'stale' : days >= 10 ? 'warn' : '';
+  const card = document.createElement('div');
+  card.className = 'card' + (p.has_contact ? '' : ' no-contact');
+  card.draggable = true;
+  card.addEventListener('dragstart', () => { dragId = p.id; card.classList.add('dragging'); });
+  card.addEventListener('dragend', () => { dragId = null; card.classList.remove('dragging'); });
+  card.addEventListener('click', () => openModal(p.id));
+
+  const loc = [p.city, p.state].filter(Boolean).join(', ');
+  const fmtM = v => v ? '$' + Number(v).toLocaleString('en-US',{maximumFractionDigits:0}) : null;
+  const fmtPct = v => v != null ? (v * 100).toFixed(2) + '%' : null;
+
+  const stats = [
+    p.plan_assets ? {k:'Assets', v: fmtM(p.plan_assets)} : null,
+    p.num_participants ? {k:'Parts', v: p.num_participants} : null,
+    p.fees_pct_assets != null ? {k:'Fees', v: fmtPct(p.fees_pct_assets)} : null,
+    p.industry ? {k:'Ind', v: p.industry} : null,
+  ].filter(Boolean);
+
+  card.innerHTML = `
+    ${!p.has_contact ? '<div class="card-flag">⚠</div>' : ''}
+    <div class="card-company">${esc(p.sponsor_name)}</div>
+    ${loc ? `<div class="card-location">${esc(loc)}</div>` : '<div class="card-location" style="margin-bottom:7px"></div>'}
+    <div class="card-stats">${stats.map(s=>`<div class="kv"><span>${s.k}</span>&nbsp;<span class="v">${esc(String(s.v))}</span></div>`).join('')}</div>
+    <div class="card-time"><div class="days ${dc}">${days}d</div><span>in stage</span></div>
+  `;
+  return card;
+}
+
+// ── Modal ──────────────────────────────────────────────
+
+function openModal(id) {
+  currentId = id;
+  const p = prospects.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('m-title').textContent = p.sponsor_name;
+  const fields = ['sponsor_name','plan_name','ein','city','state','industry',
+                  'plan_assets','num_participants','fees_pct_assets','total_fees','fee_tier',
+                  'contact_name','phone','email','mailer_sent_date','notes'];
+  fields.forEach(f => {
+    const el = document.getElementById('f-' + f);
+    if (el) el.value = (p[f] != null ? p[f] : '');
+  });
+  document.getElementById('f-stage').value = p.stage;
+  loadLogs(id);
+  document.getElementById('detail-ov').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('detail-ov').classList.remove('open');
+  currentId = null;
+}
+
+async function loadLogs(id) {
+  const logs = await api('/api/prospects/' + id + '/logs');
+  const area = document.getElementById('log-area');
+  if (!logs.length) { area.innerHTML = '<div class="log-empty">No activity logged yet.</div>'; return; }
+  area.innerHTML = logs.map(l => `
+    <div class="log-entry">
+      <div class="log-meta"><span class="who">${esc(l.display_name)}</span><span>${fmtDate(l.timestamp)}</span></div>
+      <div class="log-note">${esc(l.note)}</div>
+    </div>
+  `).join('');
+}
+
+async function addLog() {
+  const note = document.getElementById('log-input').value.trim();
+  if (!note || !currentId) return;
+  await api('/api/prospects/' + currentId + '/logs', 'POST', { note });
+  document.getElementById('log-input').value = '';
+  await loadLogs(currentId);
+  const p = prospects.find(x => x.id === currentId);
+  if (p) p.has_contact = true;
+  render(); stats();
+}
+
+async function saveProspect() {
+  if (!currentId) return;
+  const d = {};
+  ['sponsor_name','plan_name','ein','city','state','industry','contact_name','phone','email','mailer_sent_date','notes','fee_tier'].forEach(f => {
+    d[f] = document.getElementById('f-'+f).value || null;
+  });
+  ['plan_assets','num_participants','fees_pct_assets','total_fees'].forEach(f => {
+    const v = parseFloat(document.getElementById('f-'+f).value);
+    d[f] = isNaN(v) ? null : v;
+  });
+  d.stage = document.getElementById('f-stage').value;
+  const updated = await api('/api/prospects/' + currentId, 'PUT', d);
+  const idx = prospects.findIndex(x => x.id === currentId);
+  if (idx !== -1) prospects[idx] = updated;
+  render(); stats(); closeModal();
+}
+
+async function deleteProspect() {
+  if (!currentId) return;
+  if (!confirm('Delete this prospect and all call logs?')) return;
+  await api('/api/prospects/' + currentId, 'DELETE');
+  prospects = prospects.filter(x => x.id !== currentId);
+  render(); stats(); closeModal();
+}
+
+// ── Add ──────────────────────────────────────────────
+
+function openAdd() { document.getElementById('add-ov').classList.add('open'); }
+function closeAdd() { document.getElementById('add-ov').classList.remove('open'); }
+async function submitAdd() {
+  const sponsor = document.getElementById('a-sponsor').value.trim();
+  if (!sponsor) { alert('Sponsor name required.'); return; }
+  const p = await api('/api/prospects', 'POST', {
+    sponsor_name: sponsor,
+    contact_name: document.getElementById('a-contact').value || null,
+    phone: document.getElementById('a-phone').value || null,
+    stage: document.getElementById('a-stage').value,
+  });
+  prospects.push(p);
+  render(); stats(); closeAdd();
+  ['a-sponsor','a-contact','a-phone'].forEach(id => document.getElementById(id).value = '');
+}
+
+// ── Import ────────────────────────────────────────────
+
+function openImport() { document.getElementById('imp-result').style.display='none'; document.getElementById('imp-ov').classList.add('open'); }
+function closeImport() { document.getElementById('imp-ov').classList.remove('open'); }
+async function submitImport() {
+  const file = document.getElementById('imp-file').files[0];
+  if (!file) { alert('Select a CSV file.'); return; }
+  const form = new FormData();
+  form.append('file', file);
+  const r = await fetch('/api/import', { method: 'POST', body: form });
+  const data = await r.json();
+  const el = document.getElementById('imp-result');
+  el.style.display = 'block';
+  if (data.imported !== undefined) {
+    el.className = 'imp-result';
+    el.textContent = '✓ Imported ' + data.imported + ' records. Skipped: ' + (data.skipped||0);
+    await load();
+  } else {
+    el.className = 'imp-result err';
+    el.textContent = data.error || 'Import failed.';
+  }
+}
+
+// ── Utils ─────────────────────────────────────────────
+
+function daysSince(iso) {
+  if (!iso) return 0;
+  const ms = Date.now() - new Date(iso + (iso.endsWith('Z')?'':'Z')).getTime();
+  return Math.max(0, Math.floor(ms / 86400000));
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + (iso.endsWith('Z')?'':'Z'));
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+load();
+</script>
+</body>
+</html>
