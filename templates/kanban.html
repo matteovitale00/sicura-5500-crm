@@ -855,29 +855,11 @@ function buildCard(p) {
     ? `<div class="card-assets">${fmtM(p.plan_assets)}<span class="assets-label">plan assets</span></div>`
     : '';
 
-  const statsRows = [
-    p.num_participants  ? { label: 'Participants', val: p.num_participants } : null,
-    p.fees_pct_assets != null ? { label: 'Fees % Assets', val: fmtPct(p.fees_pct_assets) } : null,
-    p.industry          ? { label: 'Industry', val: p.industry } : null,
-    p.contact_name      ? { label: 'Contact', val: p.contact_name } : null,
-  ].filter(Boolean);
-
-  const statsHtml = statsRows.length ? `
-    <div class="card-stats">
-      ${statsRows.map(s => `
-        <div class="card-stat">
-          <div class="card-stat-label">${s.label}</div>
-          <div class="card-stat-value">${esc(String(s.val))}</div>
-        </div>
-      `).join('')}
-    </div>` : '';
-
   card.innerHTML = `
     ${!p.has_contact ? '<div class="card-flag">!</div>' : ''}
     <div class="card-company">${esc(p.sponsor_name)}</div>
     ${loc ? `<div class="card-location">📍 ${esc(loc)}</div>` : ''}
     ${assetsHtml}
-    ${statsHtml}
     <div class="card-footer">
       ${advisorBadge}
       <div class="card-time"><span class="days ${dc}">${days}d</span> in stage</div>
