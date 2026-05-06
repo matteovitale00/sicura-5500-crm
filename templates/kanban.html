@@ -13,6 +13,8 @@
   --border: #222; --border2: #2a2a2a; --text: #e8e4dc; --muted: #555; --muted2: #777;
   --red: #e63946; --gold: #c9a84c; --green: #2ecc71; --blue: #4e8cff;
   --purple: #9b72f5; --orange: #f4a261; --teal: #2ec4b6;
+  --advisor-matteo: #2ecc71;
+  --advisor-sam: #4e8cff;
 }
 html, body { height: 100%; overflow: hidden; }
 body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 13px; display: flex; flex-direction: column; }
@@ -57,6 +59,13 @@ body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Mono', 
 .card:hover { border-color: var(--border2); }
 .card.dragging { opacity: 0.35; }
 .card.no-contact { border-left: 2px solid var(--red); }
+/* Advisor color coding — left border overrides no-contact when advisor is set */
+.card.advisor-matteo { border-left: 3px solid var(--advisor-matteo); }
+.card.advisor-sam { border-left: 3px solid var(--advisor-sam); }
+/* If no-contact AND advisor assigned, show advisor color but keep flag */
+.card.advisor-matteo.no-contact { border-left: 3px solid var(--advisor-matteo); }
+.card.advisor-sam.no-contact { border-left: 3px solid var(--advisor-sam); }
+
 .card-flag { position: absolute; top: 9px; right: 10px; color: var(--red); font-size: 12px; }
 .card-company { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 1px; padding-right: 18px; line-height: 1.2; margin-bottom: 2px; }
 .card-location { font-size: 10px; color: var(--muted); margin-bottom: 7px; letter-spacing: 0.5px; }
@@ -67,6 +76,11 @@ body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Mono', 
 .card-time .days { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; color: var(--muted2); }
 .card-time .days.warn { color: var(--orange); }
 .card-time .days.stale { color: var(--red); }
+
+/* Advisor badge on card */
+.card-advisor { display: inline-block; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; padding: 2px 6px; margin-top: 5px; border-radius: 2px; }
+.card-advisor.matteo { background: rgba(46,204,113,0.15); color: var(--advisor-matteo); border: 1px solid rgba(46,204,113,0.3); }
+.card-advisor.sam { background: rgba(78,140,255,0.15); color: var(--advisor-sam); border: 1px solid rgba(78,140,255,0.3); }
 
 /* Detail modal */
 .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.78); z-index: 100; align-items: flex-start; justify-content: center; padding: 28px 16px; overflow-y: auto; }
@@ -143,6 +157,8 @@ input[type="file"]::file-selector-button { font-family: 'IBM Plex Mono', monospa
   <div class="stat-pill">Total <span id="s-total">—</span></div>
   <div class="stat-pill">No Contact <span class="r" id="s-nc">—</span></div>
   <div class="stat-pill">Won <span class="g" id="s-won">—</span></div>
+  <div class="stat-pill">Matteo <span style="color:var(--advisor-matteo)" id="s-matteo">—</span></div>
+  <div class="stat-pill">Sam <span style="color:var(--advisor-sam)" id="s-sam">—</span></div>
   <div class="nav-user">{{ display_name }}</div>
   <button class="nav-btn primary" onclick="openAdd()">+ Prospect</button>
   <button class="nav-btn" onclick="openImport()">↑ Import CSV</button>
@@ -203,6 +219,13 @@ input[type="file"]::file-selector-button { font-family: 'IBM Plex Mono', monospa
             <option>Closed Lost / Not Interested</option>
           </select>
         </div>
+        <div class="field"><label>Advisor Assigned</label>
+          <select id="f-advisor_assigned">
+            <option value="">— Unassigned —</option>
+            <option value="Matteo">Matteo</option>
+            <option value="Sam">Sam</option>
+          </select>
+        </div>
         <div class="field full"><label>Notes</label><textarea id="f-notes" rows="2"></textarea></div>
       </div>
 
@@ -232,6 +255,13 @@ input[type="file"]::file-selector-button { font-family: 'IBM Plex Mono', monospa
         <option>Mailer Sent</option><option>Call Attempted</option><option>Intro Call Booked</option>
         <option>Zoom/Findings Scheduled</option><option>Proposal Sent</option>
         <option>Closed Won</option><option>Closed Lost / Not Interested</option>
+      </select>
+    </div>
+    <div class="mf"><label>Advisor Assigned</label>
+      <select id="a-advisor">
+        <option value="">— Unassigned —</option>
+        <option value="Matteo">Matteo</option>
+        <option value="Sam">Sam</option>
       </select>
     </div>
     <div class="mini-actions">
@@ -290,6 +320,8 @@ function stats() {
   document.getElementById('s-total').textContent = prospects.length;
   document.getElementById('s-nc').textContent = prospects.filter(p => !p.has_contact).length;
   document.getElementById('s-won').textContent = prospects.filter(p => p.stage === 'Closed Won').length;
+  document.getElementById('s-matteo').textContent = prospects.filter(p => (p.advisor_assigned||'').toLowerCase() === 'matteo').length;
+  document.getElementById('s-sam').textContent = prospects.filter(p => (p.advisor_assigned||'').toLowerCase() === 'sam').length;
 }
 
 function render() {
@@ -338,8 +370,15 @@ function buildCol(stage) {
 function buildCard(p) {
   const days = daysSince(p.stage_entered_at);
   const dc = days >= 21 ? 'stale' : days >= 10 ? 'warn' : '';
+  const advisor = (p.advisor_assigned || '').toLowerCase();
+
   const card = document.createElement('div');
-  card.className = 'card' + (p.has_contact ? '' : ' no-contact');
+  let cardClass = 'card';
+  if (advisor === 'matteo') cardClass += ' advisor-matteo';
+  else if (advisor === 'sam') cardClass += ' advisor-sam';
+  else if (!p.has_contact) cardClass += ' no-contact';
+  if (!p.has_contact && advisor) cardClass += ' no-contact';
+  card.className = cardClass;
   card.draggable = true;
   card.addEventListener('dragstart', () => { dragId = p.id; card.classList.add('dragging'); });
   card.addEventListener('dragend', () => { dragId = null; card.classList.remove('dragging'); });
@@ -356,11 +395,18 @@ function buildCard(p) {
     p.industry ? {k:'Ind', v: p.industry} : null,
   ].filter(Boolean);
 
+  const advisorBadge = advisor === 'matteo'
+    ? '<div class="card-advisor matteo">Matteo</div>'
+    : advisor === 'sam'
+    ? '<div class="card-advisor sam">Sam</div>'
+    : '';
+
   card.innerHTML = `
     ${!p.has_contact ? '<div class="card-flag">⚠</div>' : ''}
     <div class="card-company">${esc(p.sponsor_name)}</div>
     ${loc ? `<div class="card-location">${esc(loc)}</div>` : '<div class="card-location" style="margin-bottom:7px"></div>'}
     <div class="card-stats">${stats.map(s=>`<div class="kv"><span>${s.k}</span>&nbsp;<span class="v">${esc(String(s.v))}</span></div>`).join('')}</div>
+    ${advisorBadge}
     <div class="card-time"><div class="days ${dc}">${days}d</div><span>in stage</span></div>
   `;
   return card;
@@ -381,6 +427,7 @@ function openModal(id) {
     if (el) el.value = (p[f] != null ? p[f] : '');
   });
   document.getElementById('f-stage').value = p.stage;
+  document.getElementById('f-advisor_assigned').value = p.advisor_assigned || '';
   loadLogs(id);
   document.getElementById('detail-ov').classList.add('open');
 }
@@ -424,6 +471,7 @@ async function saveProspect() {
     d[f] = isNaN(v) ? null : v;
   });
   d.stage = document.getElementById('f-stage').value;
+  d.advisor_assigned = document.getElementById('f-advisor_assigned').value || '';
   const updated = await api('/api/prospects/' + currentId, 'PUT', d);
   const idx = prospects.findIndex(x => x.id === currentId);
   if (idx !== -1) prospects[idx] = updated;
@@ -450,10 +498,12 @@ async function submitAdd() {
     contact_name: document.getElementById('a-contact').value || null,
     phone: document.getElementById('a-phone').value || null,
     stage: document.getElementById('a-stage').value,
+    advisor_assigned: document.getElementById('a-advisor').value || '',
   });
   prospects.push(p);
   render(); stats(); closeAdd();
   ['a-sponsor','a-contact','a-phone'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('a-advisor').value = '';
 }
 
 // ── Import ────────────────────────────────────────────

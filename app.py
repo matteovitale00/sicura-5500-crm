@@ -63,6 +63,12 @@ def init_db():
             FOREIGN KEY (prospect_id) REFERENCES prospects(id)
         );
     ''')
+    # Migration: add advisor_assigned column if it doesn't exist yet
+    try:
+        conn.execute('ALTER TABLE prospects ADD COLUMN advisor_assigned TEXT DEFAULT ""')
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
     for uname, pw, dname in [('matteo', 'Sicura2024!', 'Matteo'), ('sam', 'Lakeshore2024!', 'Sam')]:
         try:
             conn.execute("INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)",
@@ -132,14 +138,15 @@ def create_prospect():
     cur = conn.execute('''
         INSERT INTO prospects (sponsor_name, plan_name, ein, city, state, industry,
             plan_assets, num_participants, fees_pct_assets, total_fees, fee_tier,
-            contact_name, phone, email, mailer_sent_date, stage, notes)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            contact_name, phone, email, mailer_sent_date, stage, notes, advisor_assigned)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ''', (d.get('sponsor_name'), d.get('plan_name'), d.get('ein'),
           d.get('city'), d.get('state'), d.get('industry'),
           d.get('plan_assets'), d.get('num_participants'),
           d.get('fees_pct_assets'), d.get('total_fees'), d.get('fee_tier'),
           d.get('contact_name'), d.get('phone'), d.get('email'),
-          d.get('mailer_sent_date'), d.get('stage', 'Mailer Sent'), d.get('notes')))
+          d.get('mailer_sent_date'), d.get('stage', 'Mailer Sent'), d.get('notes'),
+          d.get('advisor_assigned', '')))
     conn.commit()
     row = conn.execute('SELECT * FROM prospects WHERE id=?', (cur.lastrowid,)).fetchone()
     result = enrich(conn, row)
@@ -148,7 +155,7 @@ def create_prospect():
 
 UPDATABLE = ['sponsor_name','plan_name','ein','city','state','industry',
              'plan_assets','num_participants','fees_pct_assets','total_fees','fee_tier',
-             'contact_name','phone','email','mailer_sent_date','notes','stage']
+             'contact_name','phone','email','mailer_sent_date','notes','stage','advisor_assigned']
 
 @app.route('/api/prospects/<int:pid>', methods=['PUT'])
 def update_prospect(pid):
