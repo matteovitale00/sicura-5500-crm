@@ -233,7 +233,7 @@ body {
   position: relative;
   user-select: none;
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  overflow: hidden;
+  overflow: visible;
 }
 .card:hover {
   box-shadow: 0 4px 14px rgba(0,0,0,0.1);
@@ -259,14 +259,15 @@ body {
 }
 
 .card-company {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.4;
   margin-bottom: 4px;
-  padding-right: 22px;
+  padding-right: 24px;
   white-space: normal;
-  word-break: break-word;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 .card-location {
   font-size: 10.5px;
