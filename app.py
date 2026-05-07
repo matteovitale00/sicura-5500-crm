@@ -36,6 +36,7 @@ def init_db():
             sponsor_name TEXT NOT NULL,
             plan_name TEXT,
             ein TEXT,
+            address TEXT,
             city TEXT,
             state TEXT,
             industry TEXT,
@@ -63,12 +64,17 @@ def init_db():
             FOREIGN KEY (prospect_id) REFERENCES prospects(id)
         );
     ''')
-    # Migration: add advisor_assigned column if it doesn't exist yet
-    try:
-        conn.execute('ALTER TABLE prospects ADD COLUMN advisor_assigned TEXT DEFAULT ""')
-        conn.commit()
-    except Exception:
-        pass  # Column already exists
+    # Migrations: add columns if they don't exist yet
+    for migration in [
+        'ALTER TABLE prospects ADD COLUMN advisor_assigned TEXT DEFAULT ""',
+        'ALTER TABLE prospects ADD COLUMN address TEXT DEFAULT ""',
+    ]:
+        try:
+            conn.execute(migration)
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
+
     for uname, pw, dname in [('matteo', 'Sicura2024!', 'Matteo'), ('sam', 'Lakeshore2024!', 'Sam')]:
         try:
             conn.execute("INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)",
@@ -136,11 +142,11 @@ def create_prospect():
     d = request.json
     conn = get_db()
     cur = conn.execute('''
-        INSERT INTO prospects (sponsor_name, plan_name, ein, city, state, industry,
+        INSERT INTO prospects (sponsor_name, plan_name, ein, address, city, state, industry,
             plan_assets, num_participants, fees_pct_assets, total_fees, fee_tier,
             contact_name, phone, email, mailer_sent_date, stage, notes, advisor_assigned)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ''', (d.get('sponsor_name'), d.get('plan_name'), d.get('ein'),
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ''', (d.get('sponsor_name'), d.get('plan_name'), d.get('ein'), d.get('address'),
           d.get('city'), d.get('state'), d.get('industry'),
           d.get('plan_assets'), d.get('num_participants'),
           d.get('fees_pct_assets'), d.get('total_fees'), d.get('fee_tier'),
@@ -153,7 +159,7 @@ def create_prospect():
     conn.close()
     return jsonify(result)
 
-UPDATABLE = ['sponsor_name','plan_name','ein','city','state','industry',
+UPDATABLE = ['sponsor_name','plan_name','ein','address','city','state','industry',
              'plan_assets','num_participants','fees_pct_assets','total_fees','fee_tier',
              'contact_name','phone','email','mailer_sent_date','notes','stage','advisor_assigned']
 
@@ -209,18 +215,49 @@ def add_log(pid):
     note = (d.get('note') or '').strip()
     if not note:
         return jsonify({'error': 'Note required'}), 400
+    # Use provided timestamp (from client local time) or fall back to server UTC
+    ts = (d.get('timestamp') or '').strip() or datetime.utcnow().strftime('%Y-%m-%d %H:%M')
     conn = get_db()
-    cur = conn.execute('INSERT INTO call_logs (prospect_id, user_id, display_name, note) VALUES (?,?,?,?)',
-                       (pid, session['user_id'], session['display_name'], note))
+    cur = conn.execute(
+        'INSERT INTO call_logs (prospect_id, user_id, display_name, timestamp, note) VALUES (?,?,?,?,?)',
+        (pid, session['user_id'], session['display_name'], ts, note))
     conn.commit()
     log = dict(conn.execute('SELECT * FROM call_logs WHERE id=?', (cur.lastrowid,)).fetchone())
     conn.close()
     return jsonify(log)
 
+@app.route('/api/logs/<int:lid>', methods=['PUT'])
+def update_log(lid):
+    """Edit a call log entry (only the note text)."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    d = request.json
+    note = (d.get('note') or '').strip()
+    if not note:
+        return jsonify({'error': 'Note required'}), 400
+    conn = get_db()
+    conn.execute('UPDATE call_logs SET note=? WHERE id=?', (note, lid))
+    conn.commit()
+    log = dict(conn.execute('SELECT * FROM call_logs WHERE id=?', (lid,)).fetchone())
+    conn.close()
+    return jsonify(log)
+
+@app.route('/api/logs/<int:lid>', methods=['DELETE'])
+def delete_log(lid):
+    """Delete a call log entry."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    conn = get_db()
+    conn.execute('DELETE FROM call_logs WHERE id=?', (lid,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
 COLUMN_MAP = {
     'sponsor_name':     ['sponsor name','company','employer name','plan sponsor','business name','company name'],
     'plan_name':        ['plan name','plan','401k plan','retirement plan'],
     'ein':              ['ein','employer id','employer identification number','tax id'],
+    'address':          ['address','street address','street','mailing address'],
     'city':             ['city'],
     'state':            ['state'],
     'industry':         ['industry','sector','sic','naics'],
@@ -278,11 +315,11 @@ def import_csv():
             except: return None
 
         conn.execute('''
-            INSERT INTO prospects (sponsor_name, plan_name, ein, city, state, industry,
+            INSERT INTO prospects (sponsor_name, plan_name, ein, address, city, state, industry,
                 plan_assets, num_participants, fees_pct_assets, total_fees, fee_tier,
                 contact_name, phone, email, mailer_sent_date)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        ''', (sponsor, g('plan_name'), g('ein'), g('city'), g('state'), g('industry'),
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ''', (sponsor, g('plan_name'), g('ein'), g('address'), g('city'), g('state'), g('industry'),
               to_float(g('plan_assets')), to_int(g('num_participants')),
               to_float(g('fees_pct_assets')), to_float(g('total_fees')), g('fee_tier'),
               g('contact_name'), g('phone'), g('email'), g('mailer_sent_date') or today))

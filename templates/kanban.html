@@ -439,7 +439,7 @@ body {
   background: #f8fafc;
   border: 1px solid var(--col-border);
   border-radius: 8px;
-  max-height: 200px;
+  max-height: 240px;
   overflow-y: auto;
   margin-bottom: 8px;
 }
@@ -450,14 +450,39 @@ body {
   border-bottom: 1px solid var(--col-border);
   font-size: 12px;
   line-height: 1.5;
+  position: relative;
 }
 .log-entry:last-child { border-bottom: none; }
+.log-entry:hover .log-actions { opacity: 1; }
 .log-meta {
-  display: flex; gap: 8px;
+  display: flex; gap: 8px; align-items: center;
   color: var(--text-muted); font-size: 10px; letter-spacing: 0.5px; margin-bottom: 3px;
 }
 .log-meta .who { color: var(--accent); font-weight: 600; }
-.log-note { color: var(--text-secondary); }
+.log-meta .ts { color: var(--text-muted); }
+.log-note { color: var(--text-secondary); padding-right: 52px; }
+.log-note-edit {
+  width: 100%; font-family: 'Inter', sans-serif; font-size: 12px;
+  border: 1px solid var(--accent); border-radius: 5px;
+  padding: 5px 8px; color: var(--text-primary); background: white;
+  outline: none; resize: none; min-height: 40px;
+}
+.log-actions {
+  position: absolute; top: 8px; right: 10px;
+  display: flex; gap: 4px;
+  opacity: 0; transition: opacity .15s;
+}
+.log-act-btn {
+  font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 600;
+  padding: 2px 7px; border-radius: 4px; cursor: pointer; border: 1px solid;
+  transition: all .12s;
+}
+.log-act-btn.edit { color: var(--accent); border-color: var(--blue-border); background: var(--blue-light); }
+.log-act-btn.edit:hover { background: var(--accent); color: white; }
+.log-act-btn.del  { color: var(--red);   border-color: var(--red-border);  background: var(--red-light);  }
+.log-act-btn.del:hover  { background: var(--red);  color: white; }
+.log-act-btn.save { color: var(--green); border-color: var(--green-border); background: var(--green-light); }
+.log-act-btn.save:hover { background: var(--green); color: white; }
 .log-empty { padding: 18px 14px; color: var(--text-dim); font-size: 12px; font-style: italic; }
 
 .log-row { display: flex; gap: 7px; margin-bottom: 16px; }
@@ -637,6 +662,7 @@ input[type="file"]::file-selector-button {
         <div class="field"><label>Plan Name</label><input id="f-plan_name" type="text"></div>
         <div class="field"><label>EIN</label><input id="f-ein" type="text"></div>
         <div class="field"><label>Industry</label><input id="f-industry" type="text" placeholder="e.g. Manufacturing"></div>
+        <div class="field full"><label>Address</label><input id="f-address" type="text" placeholder="Street address"></div>
         <div class="field"><label>City</label><input id="f-city" type="text"></div>
         <div class="field"><label>State</label><input id="f-state" type="text" maxlength="2"></div>
       </div>
@@ -876,7 +902,7 @@ function openModal(id) {
   const p = prospects.find(x => x.id === id);
   if (!p) return;
   document.getElementById('m-title').textContent = p.sponsor_name;
-  const fields = ['sponsor_name','plan_name','ein','city','state','industry',
+  const fields = ['sponsor_name','plan_name','ein','address','city','state','industry',
                   'plan_assets','num_participants','fees_pct_assets','total_fees','fee_tier',
                   'contact_name','phone','email','mailer_sent_date','notes'];
   fields.forEach(f => {
@@ -898,18 +924,99 @@ async function loadLogs(id) {
   const logs = await api('/api/prospects/' + id + '/logs');
   const area = document.getElementById('log-area');
   if (!logs.length) { area.innerHTML = '<div class="log-empty">No activity logged yet.</div>'; return; }
-  area.innerHTML = logs.map(l => `
-    <div class="log-entry">
-      <div class="log-meta"><span class="who">${esc(l.display_name)}</span><span>${fmtDate(l.timestamp)}</span></div>
-      <div class="log-note">${esc(l.note)}</div>
-    </div>
-  `).join('');
+  area.innerHTML = '';
+  logs.forEach(l => {
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    div.dataset.lid = l.id;
+    div.innerHTML = `
+      <div class="log-meta">
+        <span class="who">${esc(l.display_name)}</span>
+        <span class="ts">${fmtDate(l.timestamp)}</span>
+      </div>
+      <div class="log-note" id="ln-${l.id}">${esc(l.note)}</div>
+      <div class="log-actions">
+        <button class="log-act-btn edit" onclick="editLog(${l.id})">Edit</button>
+        <button class="log-act-btn del"  onclick="deleteLog(${l.id})">Delete</button>
+      </div>
+    `;
+    area.appendChild(div);
+  });
+}
+
+function editLog(lid) {
+  const noteEl = document.getElementById('ln-' + lid);
+  if (!noteEl) return;
+  const current = noteEl.textContent;
+  const entry = noteEl.closest('.log-entry');
+  const actions = entry.querySelector('.log-actions');
+  // Replace note text with textarea
+  const ta = document.createElement('textarea');
+  ta.className = 'log-note-edit';
+  ta.value = current;
+  noteEl.replaceWith(ta);
+  ta.focus();
+  // Swap buttons
+  actions.innerHTML = `
+    <button class="log-act-btn save" onclick="saveLog(${lid})">Save</button>
+    <button class="log-act-btn del"  onclick="cancelEditLog(${lid}, ${JSON.stringify(current)})">Cancel</button>
+  `;
+  actions.style.opacity = '1';
+}
+
+function cancelEditLog(lid, original) {
+  const entry = document.querySelector('[data-lid="' + lid + '"]');
+  if (!entry) return;
+  const ta = entry.querySelector('textarea.log-note-edit');
+  if (!ta) return;
+  const span = document.createElement('div');
+  span.className = 'log-note';
+  span.id = 'ln-' + lid;
+  span.textContent = original;
+  ta.replaceWith(span);
+  const actions = entry.querySelector('.log-actions');
+  actions.innerHTML = `
+    <button class="log-act-btn edit" onclick="editLog(${lid})">Edit</button>
+    <button class="log-act-btn del"  onclick="deleteLog(${lid})">Delete</button>
+  `;
+  actions.style.opacity = '';
+}
+
+async function saveLog(lid) {
+  const entry = document.querySelector('[data-lid="' + lid + '"]');
+  if (!entry) return;
+  const ta = entry.querySelector('textarea.log-note-edit');
+  if (!ta) return;
+  const note = ta.value.trim();
+  if (!note) { alert('Note cannot be empty.'); return; }
+  await api('/api/logs/' + lid, 'PUT', { note });
+  await loadLogs(currentId);
+}
+
+async function deleteLog(lid) {
+  if (!confirm('Delete this log entry?')) return;
+  await api('/api/logs/' + lid, 'DELETE');
+  await loadLogs(currentId);
+  // Refresh has_contact flag
+  const p = prospects.find(x => x.id === currentId);
+  if (p) {
+    const logs = await api('/api/prospects/' + currentId + '/logs');
+    p.has_contact = logs.length > 0;
+    render(); stats();
+  }
 }
 
 async function addLog() {
   const note = document.getElementById('log-input').value.trim();
   if (!note || !currentId) return;
-  await api('/api/prospects/' + currentId + '/logs', 'POST', { note });
+  // Send local timestamp so the date stamp reflects the user's timezone
+  const now = new Date();
+  const ts = now.getFullYear() + '-' +
+    String(now.getMonth()+1).padStart(2,'0') + '-' +
+    String(now.getDate()).padStart(2,'0') + ' ' +
+    String(now.getHours()).padStart(2,'0') + ':' +
+    String(now.getMinutes()).padStart(2,'0');
+  await api('/api/prospects/' + currentId + '/logs', 'POST', { note, timestamp: ts });
   document.getElementById('log-input').value = '';
   await loadLogs(currentId);
   const p = prospects.find(x => x.id === currentId);
@@ -920,7 +1027,7 @@ async function addLog() {
 async function saveProspect() {
   if (!currentId) return;
   const d = {};
-  ['sponsor_name','plan_name','ein','city','state','industry','contact_name','phone','email','mailer_sent_date','notes','fee_tier'].forEach(f => {
+  ['sponsor_name','plan_name','ein','address','city','state','industry','contact_name','phone','email','mailer_sent_date','notes','fee_tier'].forEach(f => {
     d[f] = document.getElementById('f-'+f).value || null;
   });
   ['plan_assets','num_participants','fees_pct_assets','total_fees'].forEach(f => {
@@ -996,7 +1103,10 @@ function daysSince(iso) {
 
 function fmtDate(iso) {
   if (!iso) return '';
-  const d = new Date(iso + (iso.endsWith('Z')?'':'Z'));
+  // Handle both 'YYYY-MM-DD HH:MM' (local) and ISO with Z
+  const s = iso.includes('T') || iso.endsWith('Z') ? iso : iso.replace(' ', 'T');
+  const d = new Date(s);
+  if (isNaN(d)) return iso;
   return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
 }
 
